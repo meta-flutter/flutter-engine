@@ -1,0 +1,116 @@
+name: Linux arm64
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, closed ]
+  release:
+    types: [ published, created, edited ]
+  workflow_dispatch:
+
+jobs:
+  linux-arm64:
+
+    env:
+      # TODO - hard coded for now
+      SRCREV: "c9b9d5780da342eb3f0f5e439a7db06f7d112575"
+
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+
+      - name: Get Flutter Source
+        run: |
+          export PATH=$PATH:$PWD/depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
+          gclient sync --force --shallow --no-history -R -D --revision $SRCREV -j$(nproc) -v
+
+          PATCH_DIR=$PWD/patches
+
+          # fetch arm64 sysroot
+          cd src
+          build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
+
+          git apply $PATCH_DIR/0001-clang-toolchain.patch
+          cd flutter
+          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
+      
+      - name: Build Debug
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=debug \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu arm64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_arm64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple aarch64-unknown-linux-gnu
+
+          ninja -C out/linux_debug_arm64
+
+      - name: Publish Debug
+        working-directory: src/out/linux_debug_arm64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+
+      - name: Build Release
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=release \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu arm64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_arm64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple aarch64-unknown-linux-gnu
+          ninja -C out/linux_release_arm64
+
+      - name: Publish Release
+        working-directory: src/out/linux_release_arm64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+
+      - name: Build Profile
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=profile \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu arm64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_arm64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple aarch64-unknown-linux-gnu
+          ninja -C out/linux_profile_arm64
+
+      - name: Publish Profile
+        working-directory: src/out/linux_profile_arm64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
