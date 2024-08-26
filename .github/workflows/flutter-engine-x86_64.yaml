@@ -1,0 +1,83 @@
+name: Linux x86_64
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, closed ]
+  release:
+    types: [ published, created, edited ]
+  workflow_dispatch:
+
+jobs:
+  linux-x86_64:
+
+    env:
+      # TODO - hard coded for now
+      SRCREV: "c9b9d5780da342eb3f0f5e439a7db06f7d112575"
+
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+
+      - name: Get Flutter Source
+        run: |
+          export PATH=$PATH:$PWD/depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
+          gclient sync --force --shallow --no-history -R -D --revision $SRCREV -j$(nproc) -v
+
+          PATCH_DIR=$PWD/patches
+
+          cd src/flutter
+          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
+      
+      - name: Build Debug
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=debug --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
+          ninja -C out/host_debug
+
+      - name: Publish Debug
+        working-directory: src/out/host_debug
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+          ldd libflutter_engine.so
+
+      - name: Build Release
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=release --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
+          ninja -C out/host_release
+
+      - name: Publish Release
+        working-directory: src/out/host_release
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+          ldd libflutter_engine.so
+
+      - name: Build Profile
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=profile --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
+          ninja -C out/host_profile
+
+      - name: Publish Profile
+        working-directory: src/out/host_profile
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+          ldd libflutter_engine.so
