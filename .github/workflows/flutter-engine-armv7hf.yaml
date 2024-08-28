@@ -62,11 +62,24 @@ jobs:
 
           ninja -C out/linux_debug_arm
 
-      - name: Publish Debug
-        working-directory: src/out/linux_debug_arm
+      - name: Prepare Debug Artifacts
         run: |
-          ls -laR clang_x64/exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-armv7hf.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm-sysroot
+          cd src/out/linux_debug_arm
+          ../../../scripts/prepare-sdk-armv7hf.sh
+
+      - name: Publish Debug
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug
+            path: src/out/linux_debug_arm/engine-sdk/
+
+      - name: Publish Debug Symbols
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug-symbols
+            path: src/out/linux_debug_arm/.debug/
 
       - name: Build Release
         working-directory: src
@@ -88,11 +101,18 @@ jobs:
 
           ninja -C out/linux_release_arm
 
-      - name: Publish Release
-        working-directory: src/out/linux_release_arm
+      - name: Prepare Release Artifacts
         run: |
-          ls -laR clang_x64/exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-armv7hf.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm-sysroot
+          cd src/out/linux_release_arm
+          ../../../scripts/prepare-sdk-armv7hf.sh
+
+      - name: Publish Release
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-release
+            path: src/out/linux_release_arm/engine-sdk/
 
       - name: Build Profile
         working-directory: src
@@ -114,8 +134,16 @@ jobs:
 
           ninja -C out/linux_profile_arm
 
-      - name: Publish Profile
-        working-directory: src/out/linux_profile_arm
+      - name: Prepare Profile Artifacts
         run: |
-          ls -laR clang_x64/exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-armv7hf.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm-sysroot
+          cd src/out/linux_profile_arm
+          ../../../scripts/prepare-sdk-armv7hf.sh
+
+      - name: Publish Profile
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-profile
+            path: src/out/linux_profile_arm/engine-sdk/
+
