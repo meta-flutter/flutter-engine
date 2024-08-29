@@ -52,42 +52,96 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
-          ./flutter/tools/gn --runtime-mode=debug --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
-          ninja -C out/host_debug
+          ./flutter/tools/gn --runtime-mode=debug \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu x64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple x86_64-unknown-linux-gnu
+          ninja -C out/linux_debug_x64
+
+      - name: Prepare Debug Artifacts
+        run: |
+          chmod +x scripts/prepare-sdk-x86-64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
+          cd src/out/linux_debug_x64
+          ../../../scripts/prepare-sdk-x86-64.sh
 
       - name: Publish Debug
-        working-directory: src/out/host_debug
-        run: |
-          ls -laR exe.unstripped
-          ls -la *.so
-          ldd libflutter_engine.so
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug
+            path: src/out/linux_debug_x64/engine-sdk/
+
+      - name: Publish Debug Symbols
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug-symbols
+            path: src/out/linux_debug_x64/.debug/
 
       - name: Build Release
         working-directory: src
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
-          ./flutter/tools/gn --runtime-mode=release --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
-          ninja -C out/host_release
+          ./flutter/tools/gn --runtime-mode=release \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu x64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple x86_64-unknown-linux-gnu
+          ninja -C out/linux_release_x64
+
+      - name: Prepare Release Artifacts
+        run: |
+          chmod +x scripts/prepare-sdk-x86-64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
+          cd src/out/linux_release_x64
+          ../../../scripts/prepare-sdk-x86-64.sh
 
       - name: Publish Release
-        working-directory: src/out/host_release
-        run: |
-          ls -laR exe.unstripped
-          ls -la *.so
-          ldd libflutter_engine.so
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-release
+            path: src/out/linux_release_x64/engine-sdk/
 
       - name: Build Profile
         working-directory: src
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
-          ./flutter/tools/gn --runtime-mode=profile --embedder-for-target --no-build-embedder-examples --enable-impeller-3d --no-goma --no-rbe --no-stripped --no-enable-unittests
-          ninja -C out/host_profile
+          ./flutter/tools/gn --runtime-mode=profile \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu x64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple x86_64-unknown-linux-gnu
+          ninja -C out/linux_profile_x64
+
+      - name: Prepare Profile Artifacts
+        run: |
+          chmod +x scripts/prepare-sdk-x86-64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
+          cd src/out/linux_profile_x64
+          ../../../scripts/prepare-sdk-x86-64.sh
 
       - name: Publish Profile
-        working-directory: src/out/host_profile
-        run: |
-          ls -laR exe.unstripped
-          ls -la *.so
-          ldd libflutter_engine.so
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-profile
+            path: src/out/linux_profile_x64/engine-sdk/

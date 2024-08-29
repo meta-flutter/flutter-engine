@@ -73,14 +73,26 @@ jobs:
             --target-sysroot $PWD/build/linux/debian_sid_arm64-sysroot \
             --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
             --target-triple aarch64-unknown-linux-gnu
-
           ninja -C out/linux_debug_arm64
 
-      - name: Publish Debug
-        working-directory: src/out/linux_debug_arm64
+      - name: Prepare Debug Artifacts
         run: |
-          ls -laR exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-aarch64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm64-sysroot
+          cd src/out/linux_debug_arm64
+          ../../../scripts/prepare-sdk-aarch64.sh
+
+      - name: Publish Debug
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug
+            path: src/out/linux_debug_arm64/engine-sdk/
+
+      - name: Publish Debug Symbols
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug-symbols
+            path: src/out/linux_debug_arm64/.debug/
 
       - name: Build Release
         working-directory: src
@@ -100,11 +112,18 @@ jobs:
             --target-triple aarch64-unknown-linux-gnu
           ninja -C out/linux_release_arm64
 
-      - name: Publish Release
-        working-directory: src/out/linux_release_arm64
+      - name: Prepare Release Artifacts
         run: |
-          ls -laR exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-aarch64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm64-sysroot
+          cd src/out/linux_release_arm64
+          ../../../scripts/prepare-sdk-aarch64.sh
+
+      - name: Publish Release
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-release
+            path: src/out/linux_release_arm64/engine-sdk/
 
       - name: Build Profile
         working-directory: src
@@ -124,8 +143,15 @@ jobs:
             --target-triple aarch64-unknown-linux-gnu
           ninja -C out/linux_profile_arm64
 
-      - name: Publish Profile
-        working-directory: src/out/linux_profile_arm64
+      - name: Prepare Profile Artifacts
         run: |
-          ls -laR exe.unstripped
-          ls -la *.so
+          chmod +x scripts/prepare-sdk-aarch64.sh
+          export SYSROOT=$PWD/src/build/linux/debian_sid_arm64-sysroot
+          cd src/out/linux_profile_arm64
+          ../../../scripts/prepare-sdk-aarch64.sh
+
+      - name: Publish Profile
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-profile
+            path: src/out/linux_profile_arm64/engine-sdk/
