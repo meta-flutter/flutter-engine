@@ -21,26 +21,40 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install packages
+      - name: Cache Engine Source
+        id: cache-flutter-engine
+        uses: actions/cache@v4
+        with:
+          key: ${SRCREV}-flutter-engine
+          save-always: true
+          path: |
+            ${{github.workspace}}/src/*
+            ${{github.workspace}}/depot_tools/*
+
+      - name: Fetch Engine Source
+        if: steps.cache-flutter-engine.outputs.cache-hit != 'true'
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 
-      - name: Get Flutter Source
-        run: |
           export PATH=$PATH:$PWD/depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
           gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
           gclient sync --force --shallow --no-history -R -D --revision $SRCREV -j$(nproc) -v
 
           PATCH_DIR=$PWD/patches
+          cd src
+          git apply $PATCH_DIR/0001-clang-toolchain.patch
+
+          cd flutter
+          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
+
+      - name: Patch Source
+        run: |
+          PATCH_DIR=$PWD/patches
 
           # fetch arm sysroot
           cd src
           build/linux/sysroot_scripts/install-sysroot.py --arch=arm
-
-          git apply $PATCH_DIR/0001-clang-toolchain.patch
-          cd flutter
-          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
       
       - name: Build Debug
         working-directory: src
