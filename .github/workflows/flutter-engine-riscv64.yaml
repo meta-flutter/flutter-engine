@@ -1,0 +1,148 @@
+name: Linux riscv64
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, closed ]
+  release:
+    types: [ published, created, edited ]
+  workflow_dispatch:
+
+jobs:
+  linux-riscv64:
+
+    env:
+      # TODO - hard coded for now
+      SRCREV: "c9b9d5780da342eb3f0f5e439a7db06f7d112575"
+
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+
+      - name: Get Flutter Source
+        run: |
+          rm -rf out/linux_debug_riscv64|true
+          rm -rf out/linux_release_riscv64|true
+          rm -rf out/linux_profile_riscv64|true
+
+          export PATH=$PATH:$PWD/depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
+          gclient sync --force --shallow --no-history -R -D --revision $SRCREV -j$(nproc) -v
+
+          PATCH_DIR=$PWD/patches
+
+          # fetch arm64 sysroot
+          cd src
+
+          # setting system_libdir in args.gn does not work
+          git apply $PATCH_DIR/riscv64/0001-system-libdir.patch
+
+          git apply $PATCH_DIR/0001-clang-toolchain.patch
+          cd flutter
+          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
+
+          git apply $PATCH_DIR/riscv64/0001-gn-riscv32-and-riscv64.patch
+          git apply $PATCH_DIR/riscv64/0002-fml-build-config-add-riscv.patch
+          git apply $PATCH_DIR/riscv64/0003-swiftshader-riscv-support.patch
+          git apply $PATCH_DIR/riscv64/0004-tonic-riscv-support.patch
+
+      - name: Fetch sysroot & toolchain
+        working-directory: src/build/linux
+        run: |
+          rm -rf debian_sid_riscv64-sysroot |true 
+          curl -L "https://drive.usercontent.google.com/download?id=1YM1OR7d_Z7KibqcUHVWuufqhsQlmH3qg&confirm=xxx" -o debian_sid_riscv64-sysroot.tar.gz
+          mkdir -p debian_sid_riscv64-sysroot
+          tar -xvzf debian_sid_riscv64-sysroot.tar.gz -C debian_sid_riscv64-sysroot
+          rm debian_sid_riscv64-sysroot.tar.gz
+
+          cd ../../flutter/buildtools/linux-x64
+
+          rm -rf recipe-sysroot-native |true 
+          curl -L "https://drive.usercontent.google.com/download?id=1gdV-1dJ4HD-EMWdFGAXKJwi8sFWnM1Qq&confirm=xxx" -o recipe-sysroot-native.tar.gz
+          tar -xvzf recipe-sysroot-native.tar.gz -C .
+          rm recipe-sysroot-native.tar.gz
+
+      - name: Build Debug
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=debug \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --no-prebuilt-dart-sdk \
+            --linux-cpu riscv64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_riscv64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/recipe-sysroot-native/usr \
+            --target-triple riscv64-unknown-linux-gnu
+
+          ninja -C out/linux_debug_riscv64
+
+      - name: Publish Debug
+        working-directory: src/out/linux_debug_riscv64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+
+      - name: Build Release
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=release \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --no-prebuilt-dart-sdk \
+            --linux-cpu riscv64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_riscv64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/recipe-sysroot-native/usr \
+            --target-triple riscv64-unknown-linux-gnu
+
+          ninja -C out/linux_release_riscv64
+
+      - name: Publish Release
+        working-directory: src/out/linux_release_riscv64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
+
+      - name: Build Profile
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=profile \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --no-prebuilt-dart-sdk \
+            --linux-cpu riscv64 \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/debian_sid_riscv64-sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/recipe-sysroot-native/usr \
+            --target-triple riscv64-unknown-linux-gnu
+
+          ninja -C out/linux_profile_riscv64
+
+      - name: Publish Profile
+        working-directory: src/out/linux_profile_riscv64
+        run: |
+          ls -laR exe.unstripped
+          ls -la *.so
