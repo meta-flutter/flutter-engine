@@ -1,19 +1,15 @@
 name: Linux x86_64
 
 on:
-  pull_request:
-    types: [ opened, synchronize, reopened, closed ]
-  release:
-    types: [ published, created, edited ]
   workflow_dispatch:
+    inputs:
+      SRCREV: 
+        description: 'Flutter Engine Target Source Revision'
+        required: True
+        default: ''
 
 jobs:
   linux-x86_64:
-
-    env:
-      # TODO - hard coded for now
-      SRCREV: "c9b9d5780da342eb3f0f5e439a7db06f7d112575"
-
     runs-on: [self-hosted, linux, x64]
 
     steps:
@@ -30,7 +26,7 @@ jobs:
           export PATH=$PATH:$PWD/depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
           gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
-          gclient sync --force --shallow --no-history -R -D --revision $SRCREV -j$(nproc) -v
+          gclient sync --force --shallow --no-history -R -D --revision ${{ inputs.SRCREV }} -j$(nproc) -v
 
           PATCH_DIR=$PWD/patches
 
