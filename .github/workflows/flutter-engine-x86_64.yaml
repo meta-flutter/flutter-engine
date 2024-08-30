@@ -3,14 +3,31 @@ name: Linux x86_64
 on:
   workflow_dispatch:
     inputs:
-      SRCREV: 
-        description: 'Flutter Engine Target Source Revision'
+      srcrev: 
+        description: 'Flutter Engine Commit Hash'
         required: True
         default: ''
+      release: 
+        description: 'Release'
+        required: false
+        default: 'false'
 
 jobs:
   linux-x86_64:
     runs-on: [self-hosted, linux, x64]
+    env:
+      arch: x64
+      linux_cpu:         x64
+      target_triple:     x86_64-unknown-linux-gnu
+      target_sysroot:    debian_sid_amd64-sysroot
+      tag_debug:         linux-engine-sdk-debug-x86_64-${{ inputs.srcrev }}
+      tag_debug_unopt:   linux-engine-sdk-debug-unopt-x86_64-${{ inputs.srcrev }}
+      tag_release:       linux-engine-sdk-release-x86_64-${{ inputs.srcrev }}
+      tag_profile:       linux-engine-sdk-profile-x86_64-${{ inputs.srcrev }}
+      notes_debug:       "Flutter Engine - runtime debug SDK"
+      notes_debug_unopt: "Flutter Engine - runtime debug SDK"
+      notes_release:     "Flutter Engine - runtime release SDK"
+      notes_profile:     "Flutter Engine - runtime profile SDK"
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +43,7 @@ jobs:
           export PATH=$PATH:$PWD/depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
           gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
-          gclient sync --force --shallow --no-history -R -D --revision ${{ inputs.SRCREV }} -j$(nproc) -v
+          gclient sync --force --shallow --no-history -R -D --revision ${{ inputs.srcrev }} -j$(nproc) -v
 
           PATCH_DIR=$PWD/patches
 
@@ -46,31 +63,96 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
-            --linux-cpu x64 \
+            --linux-cpu $linux_cpu \
             --target-os linux \
-            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-sysroot $PWD/build/linux/$target_sysroot \
             --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
-            --target-triple x86_64-unknown-linux-gnu
-          ninja -C out/linux_debug_x64
+            --target-triple $target_triple
+          ninja -C out/linux_debug_$arch
 
       - name: Prepare Debug Artifacts
         run: |
-          chmod +x scripts/prepare-sdk-x86-64.sh
-          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
-          cd src/out/linux_debug_x64
-          ../../../scripts/prepare-sdk-x86-64.sh
+          scripts/prepare-sdk-x86-64.sh src/out/linux_debug_$arch $PWD/src/build/linux/$target_sysroot
+
+          tar czfhv $tag_debug.tar.gz              src/out/linux_debug_$arch/engine-sdk/
+
+          sha256sum -b $tag_debug.tar.gz         > $tag_debug.tar.gz.sha256
 
       - name: Publish Debug
+        if: ${{ inputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
             name: engine-sdk-debug
-            path: src/out/linux_debug_x64/engine-sdk/
+            path: |
+              $tag_debug.tar.gz
+              $tag_debug.tar.gz.sha256
 
-      - name: Publish Debug Symbols
+      - name: Release - Debug Release
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create --draft "$tag_debug" --title "$tag_debug" --notes "$notes_debug"
+          gh release upload "$tag_debug" "$tag_debug.tar.gz" "$tag_debug.tar.gz.sha256"
+          gh release edit "$tag_debug" --draft=false
+
+      - name: Build Debug Unoptimized
+        working-directory: src
+        run: |
+          export PATH=$PATH:$PWD/../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          ./flutter/tools/gn --runtime-mode=debug \
+            --unoptimized \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --enable-impeller-3d \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --linux-cpu $linux_cpu \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/$target_sysroot \
+            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-triple $target_triple
+          ninja -C out/linux_debug_unopt_$arch
+
+      - name: Prepare Debug Unoptimized Artifacts
+        run: |
+          scripts/prepare-sdk-x86-64.sh src/out/linux_debug_unopt_$arch $PWD/src/build/linux/$target_sysroot
+
+          tar czfhv $tag_debug_unopt.tar.gz              src/out/linux_debug_unopt_$arch/engine-sdk/
+          tar czfhv $tag_debug_unopt-symbols.tar.gz      src/out/linux_debug_unopt_$arch/.debug/
+
+          sha256sum -b $tag_debug_unopt.tar.gz         > $tag_debug_unopt.tar.gz.sha256
+          sha256sum -b $tag_debug_unopt-symbols.tar.gz > $tag_debug_unopt-symbols.tar.gz.sha256
+
+      - name: Publish Debug Unoptimized
+        if: ${{ inputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
-            name: engine-sdk-debug-symbols
-            path: src/out/linux_debug_x64/.debug/
+            name: engine-sdk-debug-unoptimized
+            path: |
+              $tag_debug_unopt.tar.gz
+              $tag_debug_unopt.tar.gz.sha256
+
+      - name: Publish Debug Unoptimized Symbols
+        if: ${{ inputs.release != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug-unoptimized-symbols
+            path: |
+              $tag_debug_unopt-symbols.tar.gz
+              $tag_debug_unopt-symbols.tar.gz.sha256
+
+      - name: Release - Debug Unoptimized Release
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create --draft "$tag_debug_unopt" --title "$tag_debug_unopt" --notes "$notes_debug_unopt"
+          gh release upload "$tag_debug_unopt" "$tag_debug_unopt.tar.gz" "$tag_debug_unopt.tar.gz.sha256"
+          gh release edit "$tag_debug_unopt" --draft=false
 
       - name: Build Release
         working-directory: src
@@ -83,25 +165,39 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
-            --linux-cpu x64 \
+            --linux-cpu $linux_cpu \
             --target-os linux \
-            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-sysroot $PWD/build/linux/$target_sysroot \
             --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
-            --target-triple x86_64-unknown-linux-gnu
-          ninja -C out/linux_release_x64
+            --target-triple $target_triple
+          ninja -C out/linux_release_$arch
 
       - name: Prepare Release Artifacts
         run: |
-          chmod +x scripts/prepare-sdk-x86-64.sh
-          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
-          cd src/out/linux_release_x64
-          ../../../scripts/prepare-sdk-x86-64.sh
+          scripts/prepare-sdk-x86-64.sh src/out/linux_release_$arch $PWD/src/build/linux/$target_sysroot
+
+          tar czfhv $tag_release.tar.gz src/out/linux_release_$arch/engine-sdk/
+
+          sha256sum -b $tag_release.tar.gz > $tag_release.tar.gz.sha256
 
       - name: Publish Release
+        if: ${{ inputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
             name: engine-sdk-release
-            path: src/out/linux_release_x64/engine-sdk/
+            path: |
+              $tag_release.tar.gz
+              $tag_release.tar.gz.sha256
+
+      - name: Release - Publish Release
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create --draft "$tag_release" --title "$tag_release" --notes "$notes_release"
+          gh release upload "$tag_release" "$tag_release.tar.gz" "$tag_release.tar.gz.sha256"
+          gh release edit "$tag_release" --draft=false
 
       - name: Build Profile
         working-directory: src
@@ -114,22 +210,36 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
-            --linux-cpu x64 \
+            --linux-cpu $linux_cpu \
             --target-os linux \
-            --target-sysroot $PWD/build/linux/debian_sid_amd64-sysroot \
+            --target-sysroot $PWD/build/linux/$target_sysroot \
             --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
-            --target-triple x86_64-unknown-linux-gnu
-          ninja -C out/linux_profile_x64
+            --target-triple $target_triple
+          ninja -C out/linux_profile_$arch
 
       - name: Prepare Profile Artifacts
         run: |
-          chmod +x scripts/prepare-sdk-x86-64.sh
-          export SYSROOT=$PWD/src/build/linux/debian_sid_amd64-sysroot
-          cd src/out/linux_profile_x64
-          ../../../scripts/prepare-sdk-x86-64.sh
+          scripts/prepare-sdk-x86-64.sh src/out/linux_profile_$arch $PWD/src/build/linux/$target_sysroot
+
+          tar czfhv $tag_profile.tar.gz src/out/linux_profile_$arch/engine-sdk/
+
+          sha256sum -b $tag_profile.tar.gz > $tag_profile.tar.gz.sha256
 
       - name: Publish Profile
+        if: ${{ inputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
             name: engine-sdk-profile
-            path: src/out/linux_profile_x64/engine-sdk/
+            path: |
+              $tag_profile.tar.gz
+              $tag_profile.tar.gz.sha256
+
+      - name: Release - Publish Profile
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create --draft "$tag_profile" --title "$tag_profile" --notes "$notes_profile"
+          gh release upload "$tag_profile" "$tag_profile.tar.gz" "$tag_profile.tar.gz.sha256"
+          gh release edit "$tag_profile" --draft=false

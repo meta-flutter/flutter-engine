@@ -1,5 +1,9 @@
 #! /bin/bash
 
+pushd $1
+
+SYSROOT=$2
+
 mkdir -p engine-sdk/{data,lib,bin,lib/arm-linux-gnueabihf,usr/lib/arm-linux-gnueabihf,bin/clang_x64,usr/include,sdk/lib}
 
 # 
@@ -80,3 +84,5 @@ for file in $(pwd)/engine-sdk/lib/*; do
 	fi
 done
 mv $(pwd)/engine-sdk/lib/*.debug $(pwd)/.debug/
+
+popd
