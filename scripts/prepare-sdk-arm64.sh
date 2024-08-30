@@ -1,5 +1,9 @@
 #! /bin/bash
 
+pushd $1
+
+SYSROOT=$2
+
 mkdir -p engine-sdk/{data,bin,lib/aarch64-linux-gnu,usr/lib/aarch64-linux-gnu,usr/include,sdk/lib}
 
 # 
@@ -76,3 +80,5 @@ for file in $(pwd)/engine-sdk/lib/*; do
 	fi
 done
 mv $(pwd)/engine-sdk/lib/*.debug $(pwd)/.debug/
+
+popd
