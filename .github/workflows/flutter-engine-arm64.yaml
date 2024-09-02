@@ -60,6 +60,9 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          CLANG_ROOT=$(find -iname clang++)
+          CLANG_ROOT=$(dirname $CLANG_ROOT)
+          export CLANG_ROOT=$(dirname $CLANG_ROOT)
           ./flutter/tools/gn --runtime-mode=debug \
             --embedder-for-target \
             --no-build-embedder-examples \
@@ -69,7 +72,7 @@ jobs:
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
-            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-toolchain $PWD/$CLANG_ROOT \
             --target-triple $target_triple
           ninja -C out/linux_debug_$arch
 
@@ -105,6 +108,9 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          CLANG_ROOT=$(find -iname clang++)
+          CLANG_ROOT=$(dirname $CLANG_ROOT)
+          export CLANG_ROOT=$(dirname $CLANG_ROOT)
           ./flutter/tools/gn --runtime-mode=debug \
             --unoptimized \
             --embedder-for-target \
@@ -115,7 +121,7 @@ jobs:
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
-            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-toolchain $PWD/$CLANG_ROOT \
             --target-triple $target_triple
           ninja -C out/linux_debug_unopt_$arch
 
@@ -162,6 +168,9 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          CLANG_ROOT=$(find -iname clang++)
+          CLANG_ROOT=$(dirname $CLANG_ROOT)
+          export CLANG_ROOT=$(dirname $CLANG_ROOT)
           ./flutter/tools/gn --runtime-mode=release \
             --embedder-for-target \
             --no-build-embedder-examples \
@@ -171,7 +180,7 @@ jobs:
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
-            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-toolchain $PWD/$CLANG_ROOT \
             --target-triple $target_triple
           ninja -C out/linux_release_$arch
 
@@ -207,6 +216,9 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/../depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          CLANG_ROOT=$(find -iname clang++)
+          CLANG_ROOT=$(dirname $CLANG_ROOT)
+          export CLANG_ROOT=$(dirname $CLANG_ROOT)
           ./flutter/tools/gn --runtime-mode=profile \
             --embedder-for-target \
             --no-build-embedder-examples \
@@ -216,7 +228,7 @@ jobs:
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
-            --target-toolchain $PWD/flutter/buildtools/linux-x64/clang \
+            --target-toolchain $PWD/$CLANG_ROOT \
             --target-triple $target_triple
           ninja -C out/linux_profile_$arch
 
