@@ -28,6 +28,6 @@ Never use a binary build artifact from a server that you cannot validate the exp
 
 When running binaries on your Linux host, if it fails to execute due to interpreter error you can use the following pattern:
 ```
-unshare -mr chroot `pwd`/engine-sdk /usr/bin/gen_snapshot --version
-Dart SDK version: 3.6.0-164.0.dev (dev) (Tue Aug 20 13:05:46 2024 -0700) on "linux_x64"
+unshare -mr chroot $(pwd)/engine-sdk/clang_x64 /bin/gen_snapshot --version
+Dart SDK version: 3.5.2 (stable) (Wed Aug 28 10:01:20 2024 +0000) on "linux_x64"
 ```

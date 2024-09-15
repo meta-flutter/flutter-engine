@@ -16,7 +16,7 @@ jobs:
   linux-arm64:
     runs-on: [self-hosted, linux, x64]
     env:
-      arch: arm64
+      arch:              arm64
       linux_cpu:         arm64
       target_triple:     aarch64-unknown-linux-gnu
       target_sysroot:    debian_sid_arm64-sysroot
@@ -90,8 +90,8 @@ jobs:
         with:
             name: engine-sdk-debug
             path: |
-              $tag_debug.tar.gz
-              $tag_debug.tar.gz.sha256
+              linux-engine-sdk-debug-arm64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-arm64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Debug Release
         if: ${{ inputs.release == 'true' }}
@@ -99,6 +99,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          gh release delete "$tag_debug" --cleanup-tag -y |true
           gh release create --draft "$tag_debug" --title "$tag_debug" --notes "$notes_debug"
           gh release upload "$tag_debug" "$tag_debug.tar.gz" "$tag_debug.tar.gz.sha256"
           gh release edit "$tag_debug" --draft=false
@@ -130,10 +131,8 @@ jobs:
           scripts/prepare-sdk-$arch.sh src/out/linux_debug_unopt_$arch $PWD/src/build/linux/$target_sysroot
 
           tar czfhv $tag_debug_unopt.tar.gz              src/out/linux_debug_unopt_$arch/engine-sdk/
-          tar czfhv $tag_debug_unopt-symbols.tar.gz      src/out/linux_debug_unopt_$arch/.debug/
 
           sha256sum -b $tag_debug_unopt.tar.gz         > $tag_debug_unopt.tar.gz.sha256
-          sha256sum -b $tag_debug_unopt-symbols.tar.gz > $tag_debug_unopt-symbols.tar.gz.sha256
 
       - name: Publish Debug Unoptimized
         if: ${{ inputs.release != 'true' }}
@@ -141,17 +140,8 @@ jobs:
         with:
             name: engine-sdk-debug-unoptimized
             path: |
-              $tag_debug_unopt.tar.gz
-              $tag_debug_unopt.tar.gz.sha256
-
-      - name: Publish Debug Unoptimized Symbols
-        if: ${{ inputs.release != 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-            name: engine-sdk-debug-unoptimized-symbols
-            path: |
-              $tag_debug_unopt-symbols.tar.gz
-              $tag_debug_unopt-symbols.tar.gz.sha256
+              linux-engine-sdk-debug-unopt-arm64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-unopt-arm64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Debug Unoptimized Release
         if: ${{ inputs.release == 'true' }}
@@ -159,6 +149,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          gh release delete "$tag_debug_unopt" --cleanup-tag -y |true
           gh release create --draft "$tag_debug_unopt" --title "$tag_debug_unopt" --notes "$notes_debug_unopt"
           gh release upload "$tag_debug_unopt" "$tag_debug_unopt.tar.gz" "$tag_debug_unopt.tar.gz.sha256"
           gh release edit "$tag_debug_unopt" --draft=false
@@ -198,8 +189,8 @@ jobs:
         with:
             name: engine-sdk-release
             path: |
-              $tag_release.tar.gz
-              $tag_release.tar.gz.sha256
+              linux-engine-sdk-release-arm64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-release-arm64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Release
         if: ${{ inputs.release == 'true' }}
@@ -207,6 +198,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          gh release delete "$tag_release" --cleanup-tag -y |true
           gh release create --draft "$tag_release" --title "$tag_release" --notes "$notes_release"
           gh release upload "$tag_release" "$tag_release.tar.gz" "$tag_release.tar.gz.sha256"
           gh release edit "$tag_release" --draft=false
@@ -246,8 +238,8 @@ jobs:
         with:
             name: engine-sdk-profile
             path: |
-              $tag_profile.tar.gz
-              $tag_profile.tar.gz.sha256
+              linux-engine-sdk-profile-arm64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-profile-arm64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Profile
         if: ${{ inputs.release == 'true' }}
@@ -255,6 +247,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          gh release delete "$tag_profile" --cleanup-tag -y |true
           gh release create --draft "$tag_profile" --title "$tag_profile" --notes "$notes_profile"
           gh release upload "$tag_profile" "$tag_profile.tar.gz" "$tag_profile.tar.gz.sha256"
           gh release edit "$tag_profile" --draft=false

@@ -4,7 +4,12 @@ pushd $1
 
 SYSROOT=$2
 
-mkdir -p engine-sdk/{data,lib,bin,lib/arm-linux-gnueabihf,usr/lib/arm-linux-gnueabihf,bin/clang_x64,usr/include,sdk/lib}
+mkdir -p engine-sdk/{bin,include,lib,data,clang_x64/bin,clang_x64/lib64}
+
+# 
+# Include
+# 
+cp flutter_embedder.h engine-sdk/include/
 
 # 
 # /data 
@@ -12,77 +17,37 @@ mkdir -p engine-sdk/{data,lib,bin,lib/arm-linux-gnueabihf,usr/lib/arm-linux-gnue
 cp icudtl.dat engine-sdk/data/
 
 # 
-# Include
-# 
-cp flutter_embedder.h engine-sdk/usr/include/
-
-# 
 # SDK
 # 
 cp -r flutter_patched_sdk engine-sdk/sdk/
 if [ -e shader_lib ]; then
-	cp -r shader_lib engine-sdk/sdk/lib
+	cp -r shader_lib engine-sdk/
 fi
 
-# 
-# /bin
-# 
-cp clang_x64/exe.unstripped/* engine-sdk/bin/clang_x64/
+export cwd=$(pwd)
 
 # 
-# /lib
+# host - x64
 # 
-export cwd=$(pwd)
-cd so.unstripped
+cd clang_x64/exe.unstripped
 for file in *; do
-    cp "$file" $cwd/engine-sdk/lib/
-    cp "../$file.TOC" $cwd/engine-sdk/sdk/lib/
+    cp "../$file" $cwd/engine-sdk/clang_x64/bin/
+
+    # Copy each library with its parent directories to the target directory
+    for library in $(ldd "$file" | cut -d '>' -f 2 | awk '{print $1}')
+    do
+        [ -f "${library}" ] && cp --verbose --parents "${library}" "$cwd/engine-sdk/clang_x64/"
+    done
 done
 cd $cwd
 
 # 
-# ld-linux-*
+# /lib
 # 
-cp $SYSROOT/lib/ld-linux-armhf.so* engine-sdk/lib/
-
-# 
-# /usr/lib/$ARCH-linux-gnu
-# 
-cp $SYSROOT/lib/arm-linux-gnueabihf/libdl-* 				engine-sdk/lib/arm-linux-gnueabihf/
-cp $SYSROOT/usr/lib/arm-linux-gnueabihf/libdl.so*			engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/lib/arm-linux-gnueabihf/libdl.so* 			engine-sdk/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/usr/lib/arm-linux-gnueabihf/libdl-* 			engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp $SYSROOT/lib/arm-linux-gnueabihf/libpthread-* 			engine-sdk/lib/arm-linux-gnueabihf/
-cp $SYSROOT/usr/lib/arm-linux-gnueabihf/libpthread-* 		engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/lib/arm-linux-gnueabihf/libpthread.so* 		engine-sdk/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/usr/lib/arm-linux-gnueabihf/libpthread.so*	engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp $SYSROOT/lib/arm-linux-gnueabihf/libm-* 					engine-sdk/lib/arm-linux-gnueabihf/
-cp $SYSROOT/usr/lib/arm-linux-gnueabihf/libm-* 				engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/lib/arm-linux-gnueabihf/libm.so* 			engine-sdk/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/usr/lib/arm-linux-gnueabihf/libm.so*			engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp $SYSROOT/lib/arm-linux-gnueabihf/libc-* 					engine-sdk/lib/arm-linux-gnueabihf/
-cp $SYSROOT/usr/lib/arm-linux-gnueabihf/libc-* 				engine-sdk/usr/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/lib/arm-linux-gnueabihf/libc.so* 			engine-sdk/lib/arm-linux-gnueabihf/
-cp -d $SYSROOT/usr/lib/arm-linux-gnueabihf/libc.so*			engine-sdk/usr/lib/arm-linux-gnueabihf/
-
-# 
-# Strip Components
-# 
-export CLANG_BIN_PATH=../../flutter/buildtools/linux-x64/clang/bin
-mkdir -p .debug
-for file in $(pwd)/engine-sdk/bin/clang_x64/*; do
-	if [ -f "$file" ]; then
-		$CLANG_BIN_PATH/llvm-strip --only-keep-debug -o $file.debug $file
-		$CLANG_BIN_PATH/llvm-strip $file
-	fi
+cd so.unstripped
+for file in *; do
+    cp "../$file" $cwd/engine-sdk/lib/
 done
-mv $(pwd)/engine-sdk/bin/clang_x64/*.debug $(pwd)/.debug/
-for file in $(pwd)/engine-sdk/lib/*; do
-	if [ -f "$file" ]; then
-		$CLANG_BIN_PATH/llvm-strip --only-keep-debug -o $file.debug $file
-		$CLANG_BIN_PATH/llvm-strip $file
-	fi
-done
-mv $(pwd)/engine-sdk/lib/*.debug $(pwd)/.debug/
+cd $cwd
 
 popd
