@@ -66,8 +66,7 @@ jobs:
           ./flutter/tools/gn --runtime-mode=debug \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
-            --no-goma --no-rbe \
+            --no-goma \
             --no-stripped --no-enable-unittests \
             --linux-cpu $linux_cpu \
             --target-os linux \
@@ -116,8 +115,7 @@ jobs:
             --unoptimized \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
-            --no-goma --no-rbe \
+            --no-goma \
             --no-stripped --no-enable-unittests \
             --linux-cpu $linux_cpu \
             --target-os linux \
@@ -165,8 +163,7 @@ jobs:
           ./flutter/tools/gn --runtime-mode=release \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
-            --no-goma --no-rbe \
+            --no-goma \
             --no-stripped --no-enable-unittests \
             --linux-cpu $linux_cpu \
             --target-os linux \
@@ -214,8 +211,7 @@ jobs:
           ./flutter/tools/gn --runtime-mode=profile \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
-            --no-goma --no-rbe \
+            --no-goma \
             --no-stripped --no-enable-unittests \
             --linux-cpu $linux_cpu \
             --target-os linux \
