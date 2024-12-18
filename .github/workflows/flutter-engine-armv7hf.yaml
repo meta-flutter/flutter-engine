@@ -52,8 +52,6 @@ jobs:
           build/linux/sysroot_scripts/install-sysroot.py --arch=$arch
 
           git apply $PATCH_DIR/0001-clang-toolchain.patch
-          cd flutter
-          git apply $PATCH_DIR/0001-export-GPU-symbols.patch
       
       - name: Build Debug
         working-directory: src
