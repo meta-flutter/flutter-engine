@@ -42,19 +42,27 @@ jobs:
         run: |
           export PATH=$PATH:$PWD/depot_tools
           export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
-          gclient config --spec 'solutions=[{"name":"src/flutter","url":"https://github.com/flutter/engine.git","deps_file":"DEPS","managed":False,"custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True}}]'
-          gclient sync --force --shallow --no-history -R -D --revision ${{ inputs.srcrev }} -j$(nproc) -v
+          git clone https://github.com/flutter/flutter.git
+          pushd flutter
+          gclient config --spec 'solutions=[{"managed":False,"name":".","url":"https://github.com/flutter/flutter.git","custom_deps":{},"custom_vars":{"download_android_deps":False,"download_windows_deps":False,"download_linux_deps":True},"deps_file":"DEPS","safesync_url":""}]'
+          gclient sync --force --shallow --no-history -R -D --revision ${{ inputs.SRCREV }} -j$(nproc) -v
+          popd
 
+          # fetch sysroot
+          cd flutter/engine/src
+          build/linux/sysroot_scripts/install-sysroot.py --arch=$arch
+
+      - name: Patch Flutter Source
+        run: |
           PATCH_DIR=$PWD/patches
-
-          cd src
+          cd flutter
           git apply $PATCH_DIR/0001-clang-toolchain.patch
       
       - name: Build Debug
-        working-directory: src
+        working-directory: flutter/engine/src
         run: |
-          export PATH=$PATH:$PWD/../depot_tools
-          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          export PATH=$PATH:$PWD/../../../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
           CLANG_ROOT=$(find -iname clang++)
           CLANG_ROOT=$(dirname $CLANG_ROOT)
           export CLANG_ROOT=$(dirname $CLANG_ROOT)
@@ -73,9 +81,9 @@ jobs:
 
       - name: Prepare Debug Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh src/out/linux_debug_$arch $PWD/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_debug_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
-          tar czfhv $tag_debug.tar.gz              src/out/linux_debug_$arch/engine-sdk/
+          tar czfhv $tag_debug.tar.gz              flutter/engine/src/out/linux_debug_$arch/engine-sdk/
 
           sha256sum -b $tag_debug.tar.gz         > $tag_debug.tar.gz.sha256
 
@@ -100,10 +108,10 @@ jobs:
           gh release edit "$tag_debug" --draft=false
 
       - name: Build Debug Unoptimized
-        working-directory: src
+        working-directory: flutter/engine/src
         run: |
-          export PATH=$PATH:$PWD/../depot_tools
-          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          export PATH=$PATH:$PWD/../../../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
           CLANG_ROOT=$(find -iname clang++)
           CLANG_ROOT=$(dirname $CLANG_ROOT)
           export CLANG_ROOT=$(dirname $CLANG_ROOT)
@@ -123,9 +131,9 @@ jobs:
 
       - name: Prepare Debug Unoptimized Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh src/out/linux_debug_unopt_$arch $PWD/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_debug_unopt_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
-          tar czfhv $tag_debug_unopt.tar.gz              src/out/linux_debug_unopt_$arch/engine-sdk/
+          tar czfhv $tag_debug_unopt.tar.gz              flutter/engine/src/out/linux_debug_unopt_$arch/engine-sdk/
 
           sha256sum -b $tag_debug_unopt.tar.gz         > $tag_debug_unopt.tar.gz.sha256
 
@@ -150,10 +158,10 @@ jobs:
           gh release edit "$tag_debug_unopt" --draft=false
 
       - name: Build Release
-        working-directory: src
+        working-directory: flutter/engine/src
         run: |
-          export PATH=$PATH:$PWD/../depot_tools
-          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          export PATH=$PATH:$PWD/../../../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
           CLANG_ROOT=$(find -iname clang++)
           CLANG_ROOT=$(dirname $CLANG_ROOT)
           export CLANG_ROOT=$(dirname $CLANG_ROOT)
@@ -172,9 +180,9 @@ jobs:
 
       - name: Prepare Release Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh src/out/linux_release_$arch $PWD/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_release_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
-          tar czfhv $tag_release.tar.gz src/out/linux_release_$arch/engine-sdk/
+          tar czfhv $tag_release.tar.gz flutter/engine/src/out/linux_release_$arch/engine-sdk/
 
           sha256sum -b $tag_release.tar.gz > $tag_release.tar.gz.sha256
 
@@ -199,10 +207,10 @@ jobs:
           gh release edit "$tag_release" --draft=false
 
       - name: Build Profile
-        working-directory: src
+        working-directory: flutter/engine/src
         run: |
-          export PATH=$PATH:$PWD/../depot_tools
-          export VPYTHON_VIRTUALENV_ROOT=$PWD/vpython
+          export PATH=$PATH:$PWD/../../../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
           CLANG_ROOT=$(find -iname clang++)
           CLANG_ROOT=$(dirname $CLANG_ROOT)
           export CLANG_ROOT=$(dirname $CLANG_ROOT)
@@ -221,9 +229,9 @@ jobs:
 
       - name: Prepare Profile Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh src/out/linux_profile_$arch $PWD/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_profile_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
-          tar czfhv $tag_profile.tar.gz src/out/linux_profile_$arch/engine-sdk/
+          tar czfhv $tag_profile.tar.gz flutter/engine/src/out/linux_profile_$arch/engine-sdk/
 
           sha256sum -b $tag_profile.tar.gz > $tag_profile.tar.gz.sha256
 
