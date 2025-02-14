@@ -9,19 +9,51 @@ mkdir -p engine-sdk/{bin,include,lib,data,clang_x64/bin,clang_x64/lib64}
 # 
 # Include
 # 
-cp flutter_embedder.h engine-sdk/include/
+cp *.h engine-sdk/include/
 
 # 
 # /data 
 # 
 cp icudtl.dat engine-sdk/data/
 
+#
+# cpp_client_wrapper_glfw
+#
+if [ -e cpp_client_wrapper_glfw ]; then
+    mkdir -p engine-sdk/sdk/cpp_client_wrapper_glfw/
+	cp -r cpp_client_wrapper_glfw/* engine-sdk/sdk/cpp_client_wrapper_glfw/
+fi
+
 # 
-# SDK
+# flutter_linux
 # 
-cp -r flutter_patched_sdk engine-sdk/sdk/
+if [ -e flutter_linux ]; then
+    mkdir -p engine-sdk/include/flutter_linux
+    cp -r flutter_linux/* engine-sdk/include/flutter_linux/
+fi
+
+#
+# flutter_patched_sdk
+#
+if [ -e flutter_patched_sdk ]; then
+    mkdir -p engine-sdk/sdk/flutter_patched_sdk
+    cp -r flutter_patched_sdk/* engine-sdk/sdk/flutter_patched_sdk/
+fi
+
+#
+# shader_lib
+#
 if [ -e shader_lib ]; then
+    mkdir -p engine-sdk/sdk/flutter_patched_sdk
 	cp -r shader_lib engine-sdk/
+fi
+
+#
+# zip archives
+#
+if [ -e zip_archives ]; then
+    mkdir -p engine-sdk/sdk/zip_archives
+	cp -r zip_archives/* engine-sdk/sdk/zip_archives/
 fi
 
 export cwd=$(pwd)
