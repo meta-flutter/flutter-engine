@@ -72,6 +72,7 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
+            --no-dart-version-git-info \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
@@ -122,6 +123,7 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
+            --no-dart-version-git-info \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
@@ -171,6 +173,7 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
+            --no-dart-version-git-info \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
@@ -220,6 +223,7 @@ jobs:
             --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
+            --no-dart-version-git-info \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
