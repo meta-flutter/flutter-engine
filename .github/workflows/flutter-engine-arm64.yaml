@@ -69,7 +69,6 @@ jobs:
           ./flutter/tools/gn --runtime-mode=debug \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
@@ -120,7 +119,6 @@ jobs:
             --unoptimized \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
@@ -170,7 +168,6 @@ jobs:
           ./flutter/tools/gn --runtime-mode=release \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
@@ -220,7 +217,6 @@ jobs:
           ./flutter/tools/gn --runtime-mode=profile \
             --embedder-for-target \
             --no-build-embedder-examples \
-            --enable-impeller-3d \
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
