@@ -1,4 +1,4 @@
-name: Linux x86_64
+name: Linux riscv64
 
 on:
   workflow_dispatch:
@@ -13,17 +13,17 @@ on:
         default: 'false'
 
 jobs:
-  linux-x86_64:
+  linux-riscv64:
     runs-on: [self-hosted, linux, x64]
     env:
-      arch:              x64
-      linux_cpu:         x64
-      target_triple:     x86_64-unknown-linux-gnu
-      target_sysroot:    debian_bullseye_amd64-sysroot
-      tag_debug:         linux-engine-sdk-debug-x86_64-${{ inputs.srcrev }}
-      tag_debug_unopt:   linux-engine-sdk-debug-unopt-x86_64-${{ inputs.srcrev }}
-      tag_release:       linux-engine-sdk-release-x86_64-${{ inputs.srcrev }}
-      tag_profile:       linux-engine-sdk-profile-x86_64-${{ inputs.srcrev }}
+      arch:              riscv64
+      linux_cpu:         riscv64
+      target_triple:     riscv64-unknown-linux-gnu
+      target_sysroot:    debian_trixie_riscv64-sysroot
+      tag_debug:         linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}
+      tag_debug_unopt:   linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}
+      tag_release:       linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}
+      tag_profile:       linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}
       notes_debug:       "Flutter Engine - runtime debug SDK"
       notes_debug_unopt: "Flutter Engine - runtime debug SDK"
       notes_release:     "Flutter Engine - runtime release SDK"
@@ -81,7 +81,7 @@ jobs:
 
       - name: Prepare Debug Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_debug_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_debug_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_debug.tar.gz              flutter/engine/src/out/linux_debug_$arch/engine-sdk/
 
@@ -93,8 +93,8 @@ jobs:
         with:
             name: engine-sdk-debug
             path: |
-              linux-engine-sdk-debug-x86_64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-debug-x86_64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Debug Release
         if: ${{ inputs.release == 'true' }}
@@ -131,7 +131,7 @@ jobs:
 
       - name: Prepare Debug Unoptimized Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_debug_unopt_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_debug_unopt_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_debug_unopt.tar.gz              flutter/engine/src/out/linux_debug_unopt_$arch/engine-sdk/
 
@@ -143,8 +143,8 @@ jobs:
         with:
             name: engine-sdk-debug-unoptimized
             path: |
-              linux-engine-sdk-debug-unopt-x86_64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-debug-unopt-x86_64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Debug Unoptimized Release
         if: ${{ inputs.release == 'true' }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Prepare Release Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_release_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_release_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_release.tar.gz flutter/engine/src/out/linux_release_$arch/engine-sdk/
 
@@ -192,8 +192,8 @@ jobs:
         with:
             name: engine-sdk-release
             path: |
-              linux-engine-sdk-release-x86_64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-release-x86_64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Release
         if: ${{ inputs.release == 'true' }}
@@ -229,7 +229,7 @@ jobs:
 
       - name: Prepare Profile Artifacts
         run: |
-          scripts/prepare-sdk-x86-64.sh flutter/engine/src/out/linux_profile_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_profile_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_profile.tar.gz flutter/engine/src/out/linux_profile_$arch/engine-sdk/
 
@@ -241,8 +241,8 @@ jobs:
         with:
             name: engine-sdk-profile
             path: |
-              linux-engine-sdk-profile-x86_64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-profile-x86_64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Profile
         if: ${{ inputs.release == 'true' }}
