@@ -19,7 +19,7 @@ jobs:
       arch:              arm
       linux_cpu:         arm --arm-float-abi hard
       target_triple:     armv7-unknown-linux-gnueabihf
-      target_sysroot:    debian_sid_arm-sysroot
+      target_sysroot:    debian_bullseye_arm-sysroot
       tag_debug:         linux-engine-sdk-debug-armv7hf-${{ inputs.srcrev }}
       tag_debug_unopt:   linux-engine-sdk-debug-unopt-armv7hf-${{ inputs.srcrev }}
       tag_release:       linux-engine-sdk-release-armv7hf-${{ inputs.srcrev }}

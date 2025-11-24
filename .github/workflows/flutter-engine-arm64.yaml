@@ -19,7 +19,7 @@ jobs:
       arch:              arm64
       linux_cpu:         arm64
       target_triple:     aarch64-unknown-linux-gnu
-      target_sysroot:    debian_sid_arm64-sysroot
+      target_sysroot:    debian_bullseye_arm64-sysroot
       tag_debug:         linux-engine-sdk-debug-arm64-${{ inputs.srcrev }}
       tag_debug_unopt:   linux-engine-sdk-debug-unopt-arm64-${{ inputs.srcrev }}
       tag_release:       linux-engine-sdk-release-arm64-${{ inputs.srcrev }}
