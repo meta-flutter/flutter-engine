@@ -56,11 +56,25 @@ jobs:
         run: |
           PATCH_DIR=$PWD/patches
           cd flutter
+
           git apply $PATCH_DIR/0001-clang-toolchain.patch
           git apply $PATCH_DIR/0003-gn-riscv32-and-riscv64.patch
           git apply $PATCH_DIR/0005-fml-fixes-text_input-compiler-warnings.patch
           git apply $PATCH_DIR/0006-impeller-unnecessary-virtual-specifier.patch
-      
+
+          pushd engine/src/flutter/third_party/abseil-cpp
+          git apply $PATCH_DIR/flutter/third_party/abseil-cpp/0001-flutter-third_party-abseil-cpp-clang-compiler-warnin.patch
+          popd
+
+          pushd engine/src/flutter/third_party/googletest
+          git apply $PATCH_DIR/flutter/third_party/googletest/0001-flutter-third_party-googletest-fix-implicit-conversi.patch
+          popd
+
+          pushd engine/src/flutter/third_party/swiftshader
+          git apply $PATCH_DIR/flutter/third_party/swiftshader/0001-flutter-third_party-swiftshader-pointer-cast-to-void.patch
+          git apply $PATCH_DIR/flutter/third_party/swiftshader/0002-flutter-third_party-swiftshader-llvm-16.0-required-f.patch
+          popd
+
       - name: Build Debug
         working-directory: flutter/engine/src
         run: |
@@ -109,56 +123,6 @@ jobs:
           gh release create --draft "$tag_debug" --title "$tag_debug" --notes "$notes_debug"
           gh release upload "$tag_debug" "$tag_debug.tar.gz" "$tag_debug.tar.gz.sha256"
           gh release edit "$tag_debug" --draft=false
-
-      - name: Build Debug Unoptimized
-        working-directory: flutter/engine/src
-        run: |
-          export PATH=$PATH:$PWD/../../../depot_tools
-          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
-          CLANG_ROOT=$(find -iname clang++)
-          CLANG_ROOT=$(dirname $CLANG_ROOT)
-          export CLANG_ROOT=$(dirname $CLANG_ROOT)
-          ./flutter/tools/gn --runtime-mode=debug \
-            --unoptimized \
-            --embedder-for-target \
-            --no-build-embedder-examples \
-            --no-goma --no-rbe \
-            --no-stripped --no-enable-unittests \
-            --no-dart-version-git-info \
-            --linux-cpu $linux_cpu \
-            --target-os linux \
-            --target-sysroot $PWD/build/linux/$target_sysroot \
-            --target-toolchain $PWD/$CLANG_ROOT \
-            --target-triple $target_triple
-          ninja -C out/linux_debug_unopt_$arch
-
-      - name: Prepare Debug Unoptimized Artifacts
-        run: |
-          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_debug_unopt_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
-
-          tar czfhv $tag_debug_unopt.tar.gz              flutter/engine/src/out/linux_debug_unopt_$arch/engine-sdk/
-
-          sha256sum -b $tag_debug_unopt.tar.gz         > $tag_debug_unopt.tar.gz.sha256
-
-      - name: Publish Debug Unoptimized
-        if: ${{ inputs.release != 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-            name: engine-sdk-debug-unoptimized
-            path: |
-              linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
-
-      - name: Release - Debug Unoptimized Release
-        if: ${{ inputs.release == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh release delete "$tag_debug_unopt" --cleanup-tag -y |true
-          gh release create --draft "$tag_debug_unopt" --title "$tag_debug_unopt" --notes "$notes_debug_unopt"
-          gh release upload "$tag_debug_unopt" "$tag_debug_unopt.tar.gz" "$tag_debug_unopt.tar.gz.sha256"
-          gh release edit "$tag_debug_unopt" --draft=false
 
       - name: Build Release
         working-directory: flutter/engine/src
