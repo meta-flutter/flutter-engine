@@ -57,6 +57,9 @@ jobs:
           PATCH_DIR=$PWD/patches
           cd flutter
           git apply $PATCH_DIR/0001-clang-toolchain.patch
+          git apply $PATCH_DIR/0003-gn-riscv32-and-riscv64.patch
+          git apply $PATCH_DIR/0005-fml-fixes-text_input-compiler-warnings.patch
+          git apply $PATCH_DIR/0006-impeller-unnecessary-virtual-specifier.patch
       
       - name: Build Debug
         working-directory: flutter/engine/src
