@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joel Winarske <joel.winarske@gmail.com>
+Date: Fri, 12 Jun 2026 08:00:00 -0700
+Subject: [PATCH] [flutter/linux] fix ATK/glib C++ linkage on newer sysroots
+
+fl_view_accessible.cc wraps <atk/atk.h> in an extern "C" block to give the
+ATK functions C linkage. On newer sysroots (e.g. Debian trixie, glib >= 2.80)
+ATK transitively includes glib's glib-typeof.h, which includes the C++
+<type_traits> header. A C++ template header cannot be parsed inside an
+extern "C" block, producing:
+
+    error: templates must have C++ linkage
+
+Removing the extern "C" wrapper instead breaks linking, since the ATK symbols
+then get C++ linkage:
+
+    ld.lld: error: undefined symbol: atk_get_major_version()
+
+Include <glib.h> up front, outside the extern "C" block, so its include guards
+prevent the C++ header from being re-parsed inside the block while the ATK
+declarations keep their required C linkage.
+
+Upstream-Status: Inappropriate [sysroot/glib version specific]
+
+Signed-off-by: Joel Winarske <joel.winarske@gmail.com>
+---
+ .../shell/platform/linux/fl_view_accessible.cc          | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/engine/src/flutter/shell/platform/linux/fl_view_accessible.cc b/engine/src/flutter/shell/platform/linux/fl_view_accessible.cc
+--- a/engine/src/flutter/shell/platform/linux/fl_view_accessible.cc
++++ b/engine/src/flutter/shell/platform/linux/fl_view_accessible.cc
+@@ -2,6 +2,12 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+
++// ATK's headers pull in glib, whose glib-typeof.h includes the C++ <type_traits>
++// header (glib >= 2.80). That C++ header must not be parsed inside the extern "C"
++// block below, so include glib up front; its include guards then prevent it from
++// being re-read within the block.
++#include <glib.h>
++
+ // Workaround missing C code compatibility in ATK header.
+ // Fixed in https://gitlab.gnome.org/GNOME/at-spi2-core/-/merge_requests/219
+ extern "C" {
