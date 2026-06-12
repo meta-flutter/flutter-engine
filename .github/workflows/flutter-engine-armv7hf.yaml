@@ -1,33 +1,33 @@
-name: Linux riscv64
+name: Linux armv7hf
 
 on:
   workflow_dispatch:
     inputs:
-      srcrev: 
+      srcrev:
         description: 'Flutter Engine Commit Hash'
         required: True
         default: ''
-      release: 
+      release:
         description: 'Release'
         required: false
         default: 'false'
 
 jobs:
-  linux-riscv64:
+  linux-armv7hf:
     runs-on: [self-hosted, linux, x64]
     env:
-      arch:              riscv64
-      linux_cpu:         riscv64
-      target_triple:     riscv64-unknown-linux-gnu
-      target_sysroot:    debian_trixie_riscv64-sysroot
-      tag_debug:         linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}
-      tag_debug_unopt:   linux-engine-sdk-debug-unopt-riscv64-${{ inputs.srcrev }}
-      tag_release:       linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}
-      tag_profile:       linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}
-      notes_debug:       "Flutter Engine - runtime debug SDK"
-      notes_debug_unopt: "Flutter Engine - runtime debug SDK"
-      notes_release:     "Flutter Engine - runtime release SDK"
-      notes_profile:     "Flutter Engine - runtime profile SDK"
+      arch:              arm
+      linux_cpu:         arm --arm-float-abi hard
+      target_triple:     armv7-unknown-linux-gnueabihf
+      target_sysroot:    debian_bullseye_armhf-sysroot
+      tag_debug:         linux-engine-sdk-debug-armv7hf-${{ inputs.srcrev }}
+      tag_debug_unopt:   linux-engine-sdk-debug-unopt-armv7hf-${{ inputs.srcrev }}
+      tag_release:       linux-engine-sdk-release-armv7hf-${{ inputs.srcrev }}
+      tag_profile:       linux-engine-sdk-profile-armv7hf-${{ inputs.srcrev }}
+      notes_debug:       "Flutter Engine - Linux armv7hf runtime debug SDK"
+      notes_debug_unopt: "Flutter Engine - Linux armv7hf runtime debug unoptimized SDK"
+      notes_release:     "Flutter Engine - Linux armv7hf runtime release SDK"
+      notes_profile:     "Flutter Engine - Linux armv7hf runtime profile SDK"
 
     steps:
       - uses: actions/checkout@v4
@@ -56,16 +56,7 @@ jobs:
         run: |
           PATCH_DIR=$PWD/patches
           cd flutter
-
           git apply $PATCH_DIR/0001-clang-toolchain.patch
-          git apply $PATCH_DIR/0003-gn-riscv32-and-riscv64.patch
-          git apply $PATCH_DIR/0005-fml-fixes-text_input-compiler-warnings.patch
-          git apply $PATCH_DIR/0007-flutter-linux-atk-glib-cxx-linkage.patch
-
-          pushd engine/src/flutter/third_party/swiftshader
-          git apply $PATCH_DIR/flutter/third_party/swiftshader/0001-flutter-third_party-swiftshader-pointer-cast-to-void.patch
-          git apply $PATCH_DIR/flutter/third_party/swiftshader/0002-flutter-third_party-swiftshader-llvm-16.0-required-f.patch
-          popd
 
       - name: Build Debug
         working-directory: flutter/engine/src
@@ -90,7 +81,7 @@ jobs:
 
       - name: Prepare Debug Artifacts
         run: |
-          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_debug_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-armv7hf.sh flutter/engine/src/out/linux_debug_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_debug.tar.gz              flutter/engine/src/out/linux_debug_$arch/engine-sdk/
 
@@ -102,8 +93,8 @@ jobs:
         with:
             name: engine-sdk-debug
             path: |
-              linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-debug-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-debug-armv7hf-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-armv7hf-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Debug Release
         if: ${{ inputs.release == 'true' }}
@@ -115,6 +106,56 @@ jobs:
           gh release create --draft "$tag_debug" --title "$tag_debug" --notes "$notes_debug"
           gh release upload "$tag_debug" "$tag_debug.tar.gz" "$tag_debug.tar.gz.sha256"
           gh release edit "$tag_debug" --draft=false
+
+      - name: Build Debug Unoptimized
+        working-directory: flutter/engine/src
+        run: |
+          export PATH=$PATH:$PWD/../../../depot_tools
+          export VPYTHON_VIRTUALENV_ROOT=$PWD/../../../vpython
+          CLANG_ROOT=$(find -iname clang++)
+          CLANG_ROOT=$(dirname $CLANG_ROOT)
+          export CLANG_ROOT=$(dirname $CLANG_ROOT)
+          ./flutter/tools/gn --runtime-mode=debug \
+            --unoptimized \
+            --embedder-for-target \
+            --no-build-embedder-examples \
+            --no-goma --no-rbe \
+            --no-stripped --no-enable-unittests \
+            --no-dart-version-git-info \
+            --linux-cpu $linux_cpu \
+            --target-os linux \
+            --target-sysroot $PWD/build/linux/$target_sysroot \
+            --target-toolchain $PWD/$CLANG_ROOT \
+            --target-triple $target_triple
+          ninja -C out/linux_debug_unopt_$arch
+
+      - name: Prepare Debug Unoptimized Artifacts
+        run: |
+          scripts/prepare-sdk-armv7hf.sh flutter/engine/src/out/linux_debug_unopt_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+
+          tar czfhv $tag_debug_unopt.tar.gz              flutter/engine/src/out/linux_debug_unopt_$arch/engine-sdk/
+
+          sha256sum -b $tag_debug_unopt.tar.gz         > $tag_debug_unopt.tar.gz.sha256
+
+      - name: Publish Debug Unoptimized
+        if: ${{ inputs.release != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: engine-sdk-debug-unoptimized
+            path: |
+              linux-engine-sdk-debug-unopt-armv7hf-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-debug-unopt-armv7hf-${{ inputs.srcrev }}.tar.gz.sha256
+
+      - name: Release - Debug Unoptimized Release
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete "$tag_debug_unopt" --cleanup-tag -y |true
+          gh release create --draft "$tag_debug_unopt" --title "$tag_debug_unopt" --notes "$notes_debug_unopt"
+          gh release upload "$tag_debug_unopt" "$tag_debug_unopt.tar.gz" "$tag_debug_unopt.tar.gz.sha256"
+          gh release edit "$tag_debug_unopt" --draft=false
 
       - name: Build Release
         working-directory: flutter/engine/src
@@ -139,7 +180,7 @@ jobs:
 
       - name: Prepare Release Artifacts
         run: |
-          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_release_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-armv7hf.sh flutter/engine/src/out/linux_release_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_release.tar.gz flutter/engine/src/out/linux_release_$arch/engine-sdk/
 
@@ -151,8 +192,8 @@ jobs:
         with:
             name: engine-sdk-release
             path: |
-              linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-release-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-release-armv7hf-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-release-armv7hf-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Release
         if: ${{ inputs.release == 'true' }}
@@ -188,7 +229,7 @@ jobs:
 
       - name: Prepare Profile Artifacts
         run: |
-          scripts/prepare-sdk-$arch.sh flutter/engine/src/out/linux_profile_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
+          scripts/prepare-sdk-armv7hf.sh flutter/engine/src/out/linux_profile_$arch $PWD/flutter/engine/src/build/linux/$target_sysroot
 
           tar czfhv $tag_profile.tar.gz flutter/engine/src/out/linux_profile_$arch/engine-sdk/
 
@@ -200,8 +241,8 @@ jobs:
         with:
             name: engine-sdk-profile
             path: |
-              linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}.tar.gz
-              linux-engine-sdk-profile-riscv64-${{ inputs.srcrev }}.tar.gz.sha256
+              linux-engine-sdk-profile-armv7hf-${{ inputs.srcrev }}.tar.gz
+              linux-engine-sdk-profile-armv7hf-${{ inputs.srcrev }}.tar.gz.sha256
 
       - name: Release - Publish Profile
         if: ${{ inputs.release == 'true' }}
