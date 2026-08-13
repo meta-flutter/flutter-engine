@@ -1,0 +1,100 @@
+name: Flutter Engine
+
+# One matrix build for every arch, driving the shared scripts/build-engine.sh
+# recipe (the same recipe emb and the Yocto layer call). Replaces the four
+# per-arch workflows: each of those inlined the identical depot_tools / gclient /
+# gn / ninja / prepare-sdk orchestration, differing only by arch, triple, and
+# sysroot — all of which the recipe derives from the arch argument.
+
+on:
+  workflow_dispatch:
+    inputs:
+      srcrev:
+        description: 'Flutter Engine Commit Hash'
+        required: true
+        default: ''
+      release:
+        description: 'Release'
+        required: false
+        default: 'false'
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            modes: debug debug-unopt profile release
+            series: series-default
+          - arch: arm64
+            modes: debug debug-unopt profile release
+            series: series-default
+          - arch: armv7hf
+            modes: debug debug-unopt profile release
+            series: series-default
+          - arch: riscv64
+            modes: debug profile release
+            series: series-riscv64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch engine source (${{ matrix.arch }})
+        run: |
+          scripts/build-engine.sh fetch release "${{ matrix.arch }}" \
+            "${{ inputs.srcrev }}" glibc "$PWD/engine-src"
+
+      - name: Install target sysroot
+        working-directory: engine-src/engine/src
+        run: |
+          case "${{ matrix.arch }}" in
+            x86_64)  A=amd64 ;;
+            arm64)   A=arm64 ;;
+            armv7hf) A=armhf ;;
+            riscv64) A=riscv64 ;;
+          esac
+          build/linux/sysroot_scripts/install-sysroot.py --arch="$A"
+
+      - name: Build + package (all modes)
+        run: |
+          set -euo pipefail
+          # Point the recipe's patch series at this arch's set.
+          cp "patches/${{ matrix.series }}" patches/series
+          for mode in ${{ matrix.modes }}; do
+            EMB_SRC_DIR="$PWD/engine-src" \
+            EMB_PATCH_DIR="$PWD/patches" \
+            EMB_PREPARE_DIR="$PWD/scripts" \
+              scripts/build-engine.sh build "$mode" "${{ matrix.arch }}" \
+                "${{ inputs.srcrev }}" glibc "$PWD/out/$mode"
+            tag="linux-engine-sdk-${mode}-${{ matrix.arch }}-${{ inputs.srcrev }}"
+            tar czf "$tag.tar.gz" -C "$PWD/out/$mode" engine-sdk
+            sha256sum -b "$tag.tar.gz" > "$tag.tar.gz.sha256"
+          done
+
+      - name: Publish artifacts
+        if: ${{ inputs.release != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-sdk-${{ matrix.arch }}
+          path: |
+            linux-engine-sdk-*-${{ matrix.arch }}-${{ inputs.srcrev }}.tar.gz
+            linux-engine-sdk-*-${{ matrix.arch }}-${{ inputs.srcrev }}.tar.gz.sha256
+
+      - name: Release
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for mode in ${{ matrix.modes }}; do
+            tag="linux-engine-sdk-${mode}-${{ matrix.arch }}-${{ inputs.srcrev }}"
+            gh release delete "$tag" --cleanup-tag -y || true
+            gh release create --draft "$tag" --title "$tag" \
+              --notes "Flutter Engine - runtime ${mode} SDK"
+            gh release upload "$tag" "$tag.tar.gz" "$tag.tar.gz.sha256"
+            gh release edit "$tag" --draft=false
+          done

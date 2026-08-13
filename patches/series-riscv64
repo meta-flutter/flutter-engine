@@ -1,0 +1,6 @@
+0001-clang-toolchain.patch . 3
+0003-gn-riscv32-and-riscv64.patch . 3
+0005-fml-fixes-text_input-compiler-warnings.patch . 3
+0007-flutter-linux-atk-glib-cxx-linkage.patch . 3
+flutter/third_party/swiftshader/0001-flutter-third_party-swiftshader-pointer-cast-to-void.patch flutter/third_party/swiftshader 1
+flutter/third_party/swiftshader/0002-flutter-third_party-swiftshader-llvm-16.0-required-f.patch flutter/third_party/swiftshader 1
