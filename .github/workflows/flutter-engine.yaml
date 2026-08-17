@@ -45,6 +45,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cap parallelism at nproc-1 (shared build machine)
+        run: |
+          # The self-hosted runner shares this machine with interactive work, so
+          # leave one core free. build-engine.sh honors EMB_JOBS for both the
+          # gclient sync (-j) and every ninja build.
+          n=$(nproc)
+          echo "EMB_JOBS=$(( n > 1 ? n - 1 : 1 ))" >> "$GITHUB_ENV"
+
       - name: Fetch engine source (once, arch-independent)
         run: |
           # fetch is arch/mode-agnostic — the arch/mode args below are placeholders.
