@@ -45,13 +45,22 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Cap parallelism at nproc-1 (shared build machine)
+      - name: Configure build for the shared machine (nproc-1, no-LTO on validation)
+        env:
+          RELEASE: ${{ inputs.release }}
         run: |
           # The self-hosted runner shares this machine with interactive work, so
           # leave one core free. build-engine.sh honors EMB_JOBS for both the
           # gclient sync (-j) and every ninja build.
           n=$(nproc)
           echo "EMB_JOBS=$(( n > 1 ? n - 1 : 1 ))" >> "$GITHUB_ENV"
+          # Validation (non-release) builds drop LTO: the release-mode LTO link is
+          # a single-threaded RAM spike that -j cannot tame on a shared machine.
+          # Real releases (release=true) keep LTO for a production engine.
+          if [ "$RELEASE" != "true" ]; then
+            echo "validation build: EMB_NO_LTO=1"
+            echo "EMB_NO_LTO=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Fetch engine source (once, arch-independent)
         run: |
