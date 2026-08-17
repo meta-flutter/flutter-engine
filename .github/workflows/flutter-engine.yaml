@@ -1,10 +1,19 @@
 name: Flutter Engine
 
-# One matrix build for every arch, driving the shared scripts/build-engine.sh
-# recipe (the same recipe emb and the Yocto layer call). Replaces the four
-# per-arch workflows: each of those inlined the identical depot_tools / gclient /
-# gn / ninja / prepare-sdk orchestration, differing only by arch, triple, and
-# sysroot — all of which the recipe derives from the arch argument.
+# One job builds every (arch, runtime-mode) from a SINGLE gclient sync.
+#
+# The engine source closure (flutter monorepo + DEPS) is arch-independent, so it
+# is fetched once. Each target arch adds only its Debian sysroot — installed side
+# by side under build/linux/ — and its own gn invocation + out dir. The patch
+# series is applied once to the shared tree: every patch is either inert for the
+# other arches (0003 just adds riscv as a valid --linux-cpu; 0005/0007 are
+# arch-neutral source fixes) or arch-conditional at gn time (swiftshader picks
+# llvm-16 only for riscv64), so the superset is safe for all targets.
+#
+# Builds run SERIALLY. One `ninja -j nproc` already saturates the cores, so
+# running arches/modes in parallel adds no throughput — only memory pressure
+# (overlapping LTO release links is what exhausts RAM). Serial also keeps the
+# source page-cache warm across modes, so it is if anything faster.
 
 on:
   workflow_dispatch:
@@ -17,7 +26,7 @@ on:
         description: 'Release'
         required: false
         default: 'false'
-  # TEMPORARY (remove before merge): lets this new workflow be exercised from the
+  # TEMPORARY (remove before merge): lets this workflow be exercised from the
   # adoption branch, since workflow_dispatch only works once it is on the default
   # branch. Pushes here build the default srcrev below with release=false.
   push:
@@ -30,68 +39,80 @@ jobs:
       # From the dispatch input, or a known-good default for the push-triggered
       # validation run.
       SRCREV: ${{ github.event.inputs.srcrev || '77e2e94772b6eb43759e34ed1ad7da4674e19cab' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            modes: debug debug-unopt profile release
-            series: series-default
-          - arch: arm64
-            modes: debug debug-unopt profile release
-            series: series-default
-          - arch: armv7hf
-            modes: debug debug-unopt profile release
-            series: series-default
-          - arch: riscv64
-            modes: debug profile release
-            series: series-riscv64
 
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Fetch engine source (${{ matrix.arch }})
+      - name: Fetch engine source (once, arch-independent)
         run: |
-          scripts/build-engine.sh fetch release "${{ matrix.arch }}" \
-            "${{ env.SRCREV }}" glibc "$PWD/engine-src"
+          # fetch is arch/mode-agnostic — the arch/mode args below are placeholders.
+          scripts/build-engine.sh fetch release x86_64 "$SRCREV" glibc "$PWD/engine-src"
 
-      - name: Install target sysroot
+      - name: Install all target sysroots (side by side)
         working-directory: engine-src/engine/src
         run: |
-          case "${{ matrix.arch }}" in
-            x86_64)  A=amd64 ;;
-            arm64)   A=arm64 ;;
-            armv7hf) A=armhf ;;
-            riscv64) A=riscv64 ;;
-          esac
-          build/linux/sysroot_scripts/install-sysroot.py --arch="$A"
-
-      - name: Build + package (all modes)
-        run: |
           set -euo pipefail
-          # Point the recipe's patch series at this arch's set.
-          cp "patches/${{ matrix.series }}" patches/series
-          for mode in ${{ matrix.modes }}; do
-            EMB_SRC_DIR="$PWD/engine-src" \
-            EMB_PATCH_DIR="$PWD/patches" \
-            EMB_PREPARE_DIR="$PWD/scripts" \
-              scripts/build-engine.sh build "$mode" "${{ matrix.arch }}" \
-                "${{ env.SRCREV }}" glibc "$PWD/out/$mode"
-            tag="linux-engine-sdk-${mode}-${{ matrix.arch }}-${{ env.SRCREV }}"
-            tar czf "$tag.tar.gz" -C "$PWD/out/$mode" engine-sdk
-            sha256sum -b "$tag.tar.gz" > "$tag.tar.gz.sha256"
+          for a in amd64 arm64 armhf riscv64; do
+            echo "::group::install-sysroot $a"
+            build/linux/sysroot_scripts/install-sysroot.py --arch="$a"
+            echo "::endgroup::"
           done
 
+      - name: Stage the unified patch series
+        run: cp patches/series-all patches/series
+
+      - name: Build + package every arch × mode (serial, shared tree)
+        run: |
+          declare -A MODES=(
+            [x86_64]="debug debug-unopt profile release"
+            [arm64]="debug debug-unopt profile release"
+            [armv7hf]="debug debug-unopt profile release"
+            [riscv64]="debug profile release"
+          )
+          # ninja out-dir naming mirrors build-engine.sh, so a packaged combo can be
+          # pruned to bound disk (all combos share one checkout — they accumulate).
+          cpu_of() { case "$1" in x86_64) echo x64;; arm64) echo arm64;; armv7hf) echo arm;; riscv64) echo riscv64;; esac; }
+          dir_of() { [ "$1" = debug-unopt ] && echo debug_unopt || echo "$1"; }
+
+          failures=()
+          for arch in x86_64 arm64 armv7hf riscv64; do
+            for mode in ${MODES[$arch]}; do
+              echo "::group::build $arch $mode"
+              if EMB_SRC_DIR="$PWD/engine-src" \
+                 EMB_PATCH_DIR="$PWD/patches" \
+                 EMB_PREPARE_DIR="$PWD/scripts" \
+                   scripts/build-engine.sh build "$mode" "$arch" \
+                     "$SRCREV" glibc "$PWD/out/$arch/$mode"; then
+                tag="linux-engine-sdk-${mode}-${arch}-${SRCREV}"
+                tar czf "$tag.tar.gz" -C "$PWD/out/$arch/$mode" engine-sdk
+                sha256sum -b "$tag.tar.gz" > "$tag.tar.gz.sha256"
+                # reclaim the ninja + staged output for this combo
+                rm -rf "$PWD/out/$arch/$mode" \
+                       "engine-src/engine/src/out/linux_$(dir_of "$mode")_$(cpu_of "$arch")"
+              else
+                echo "::error::build failed: $arch $mode"
+                failures+=("$arch/$mode")
+              fi
+              echo "::endgroup::"
+            done
+          done
+
+          if [ ${#failures[@]} -gt 0 ]; then
+            printf 'FAILED combos: %s\n' "${failures[*]}" >&2
+            exit 1
+          fi
+
       - name: Publish artifacts
-        if: ${{ inputs.release != 'true' }}
+        if: ${{ always() && inputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: engine-sdk-${{ matrix.arch }}
+          name: engine-sdk
+          if-no-files-found: warn
           path: |
-            linux-engine-sdk-*-${{ matrix.arch }}-${{ env.SRCREV }}.tar.gz
-            linux-engine-sdk-*-${{ matrix.arch }}-${{ env.SRCREV }}.tar.gz.sha256
+            linux-engine-sdk-*.tar.gz
+            linux-engine-sdk-*.tar.gz.sha256
 
       - name: Release
         if: ${{ inputs.release == 'true' }}
@@ -99,11 +120,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          for mode in ${{ matrix.modes }}; do
-            tag="linux-engine-sdk-${mode}-${{ matrix.arch }}-${{ env.SRCREV }}"
+          set -euo pipefail
+          shopt -s nullglob
+          for f in linux-engine-sdk-*.tar.gz; do
+            tag="${f%.tar.gz}"
             gh release delete "$tag" --cleanup-tag -y || true
-            gh release create --draft "$tag" --title "$tag" \
-              --notes "Flutter Engine - runtime ${mode} SDK"
+            gh release create --draft "$tag" --title "$tag" --notes "Flutter Engine SDK: $tag"
             gh release upload "$tag" "$tag.tar.gz" "$tag.tar.gz.sha256"
             gh release edit "$tag" --draft=false
           done

@@ -1,28 +1,43 @@
 From d4ce6b54e3009ef96f55358e367a4a114a503b7f Mon Sep 17 00:00:00 2001
 From: Joel Winarske <joel.winarske@gmail.com>
 Date: Mon, 24 Nov 2025 16:34:21 -0800
-Subject: [PATCH] [flutter/third_party/swiftshader] llvm-16.0 required for
+Subject: [PATCH] [flutter/third_party/swiftshader] use llvm-16.0 for riscv64
+ Reactor
+
+The swiftshader Reactor JIT selects its backend per target CPU (reactor.gni):
+subzero for x86/arm32, the vendored LLVM for arm64 and riscv64. riscv64's
+Reactor codegen needs llvm-16; arm64 builds green on the stock llvm-10.
+
+Make llvm_dir arch-conditional rather than an unconditional llvm-10 -> llvm-16
+bump, so this patch can belong to one shared, all-arch series applied once to a
+single gclient closure: riscv64 gets llvm-16, every other arch keeps the llvm-10
+it was validated against. Both trees are vendored under
+flutter/third_party/swiftshader/third_party. GN has no ternary, so this uses an
+if/else (current_cpu is the target CPU gn resolves per build).
 
 Upstream-Status: Inappropriate
 
 Signed-off-by: Joel Winarske <joel.winarske@gmail.com>
 ---
- src/Reactor/BUILD.gn | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ src/Reactor/BUILD.gn | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/src/Reactor/BUILD.gn b/src/Reactor/BUILD.gn
 index 67dfeb0ec..dcb13614a 100644
 --- a/src/Reactor/BUILD.gn
 +++ b/src/Reactor/BUILD.gn
-@@ -307,7 +307,7 @@ if (supports_subzero) {
- 
+@@ -307,7 +307,11 @@ if (supports_subzero) {
+
  if (supports_llvm) {
    swiftshader_source_set("swiftshader_llvm_reactor") {
 -    llvm_dir = "../../third_party/llvm-10.0"
-+    llvm_dir = "../../third_party/llvm-16.0"
- 
++    if (current_cpu == "riscv64") {
++      llvm_dir = "../../third_party/llvm-16.0"
++    } else {
++      llvm_dir = "../../third_party/llvm-10.0"
++    }
+
      deps = [
        ":swiftshader_reactor_base",
--- 
+--
 2.52.0
-

@@ -1,0 +1,13 @@
+# Unified series for the single-tree CI build: applied ONCE to the shared gclient
+# closure, it serves every arch. Each entry is either inert for the other arches
+# (0003 only adds riscv as a valid --linux-cpu; 0005/0007 are arch-neutral source
+# fixes) or arch-conditional at gn time (swiftshader-0002 picks llvm-16 for riscv64
+# and llvm-10 elsewhere), so the superset is safe for x86_64/arm64/armv7hf/riscv64.
+# Columns: <patch> <apply-dir> <strip>. Patches are rooted at the gclient solution
+# (a/engine/src/...), so strip 3 lands them at the engine-src root.
+0001-clang-toolchain.patch . 3
+0003-gn-riscv32-and-riscv64.patch . 3
+0005-fml-fixes-text_input-compiler-warnings.patch . 3
+0007-flutter-linux-atk-glib-cxx-linkage.patch . 3
+flutter/third_party/swiftshader/0001-flutter-third_party-swiftshader-pointer-cast-to-void.patch flutter/third_party/swiftshader 1
+flutter/third_party/swiftshader/0002-flutter-third_party-swiftshader-llvm-16.0-required-f.patch flutter/third_party/swiftshader 1
