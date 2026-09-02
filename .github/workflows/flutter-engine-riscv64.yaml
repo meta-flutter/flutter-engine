@@ -38,6 +38,32 @@ jobs:
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 
+      - name: Ensure the GitHub CLI is available
+        if: ${{ inputs.release == 'true' }}
+        env:
+          GH_CLI_VERSION: '2.99.0'
+        run: |
+          set -euo pipefail
+          # Every one of these workflows runs on [self-hosted, linux, x64], so a
+          # job lands on whichever machine in the pool is free rather than on one
+          # picked for its target arch -- and not every machine has gh. When one
+          # without it takes the job, the build runs to completion and then dies
+          # at the first release step with "gh: command not found" (exit 127).
+          # That is how armv7hf built 7585 of 7585 objects on 2026-08-26 and
+          # published nothing, while x86_64 and arm64 published the same night.
+          #
+          # Installing it here rather than on the machines keeps a new runner
+          # joining the pool from reintroducing the same failure.
+          if command -v gh >/dev/null 2>&1; then
+            echo "gh already present: $(gh --version | head -1)"
+            exit 0
+          fi
+          url="https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz"
+          curl --fail --show-error --silent --location --retry 3 --retry-delay 5 "$url" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gh_${GH_CLI_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
+          echo "installed gh ${GH_CLI_VERSION} for this job"
+
       - name: Get Flutter Source
         run: |
           export PATH=$PATH:$PWD/depot_tools
