@@ -107,6 +107,7 @@ jobs:
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
+            --gn-args=dart_include_wasm_opt=false \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
@@ -156,6 +157,7 @@ jobs:
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
+            --gn-args=dart_include_wasm_opt=false \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
@@ -205,6 +207,7 @@ jobs:
             --no-goma --no-rbe \
             --no-stripped --no-enable-unittests \
             --no-dart-version-git-info \
+            --gn-args=dart_include_wasm_opt=false \
             --linux-cpu $linux_cpu \
             --target-os linux \
             --target-sysroot $PWD/build/linux/$target_sysroot \
