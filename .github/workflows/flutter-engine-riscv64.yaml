@@ -30,7 +30,7 @@ jobs:
       notes_profile:     "Flutter Engine - runtime profile SDK"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
@@ -124,7 +124,7 @@ jobs:
 
       - name: Publish Debug
         if: ${{ inputs.release != 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
             name: engine-sdk-debug
             path: |
@@ -173,7 +173,7 @@ jobs:
 
       - name: Publish Release
         if: ${{ inputs.release != 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
             name: engine-sdk-release
             path: |
@@ -222,7 +222,7 @@ jobs:
 
       - name: Publish Profile
         if: ${{ inputs.release != 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
             name: engine-sdk-profile
             path: |
